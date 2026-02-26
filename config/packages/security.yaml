@@ -1,0 +1,46 @@
+# config/packages/security.yaml
+security:
+
+    # -------------------------
+    # User providers (in-memory)
+    # -------------------------
+    providers:
+        in_memory_users:
+            memory:
+                users:
+                    testuser:
+                        password: 'test'   # Not used for JWT
+                        roles: ['ROLE_USER']
+
+    # -------------------------
+    # Firewalls
+    # -------------------------
+    firewalls:
+
+        # Dev toolbar etc
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+
+        # Dev token generator route (unprotected)
+        dev_token:
+            pattern: ^/api/cart/dev-token
+            security: false
+
+        # API routes protected by JWT
+        api:
+            pattern: ^/api
+            stateless: true
+            jwt: ~
+
+        # Main fallback firewall
+        main:
+            lazy: true
+            provider: in_memory_users
+
+    # -------------------------
+    # Access control
+    # -------------------------
+    access_control:
+        # Protect all /api routes
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
