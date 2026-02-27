@@ -2,15 +2,17 @@
 namespace App\Controller;
 
 use App\Service\CartService;
-use App\Dto\Cart\AddItemDto;
-use App\Dto\Cart\UpdateItemDto;
-use App\Dto\Cart\RemoveItemDto;
+use App\Dto\Cart\AddItemRequestDto;
+use App\Dto\Cart\UpdateItemRequestDto;
+use App\Dto\Cart\DeleteItemRequestDto;
+use App\Dto\Cart\DeleteItemResponseDto;
+use App\Mapper\CartMapper;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api/cart', name: 'api_cart_')]
 class CartController extends AbstractController
@@ -29,111 +31,88 @@ class CartController extends AbstractController
         $this->validator = $validator;
     }
 
-    private function handleValidation($dto): ?JsonResponse
+    private function validateDto(object $dto): ?JsonResponse
     {
         $errors = $this->validator->validate($dto);
         if (count($errors) > 0) {
-            $errorMessages = [];
+            $messages = [];
             foreach ($errors as $error) {
-                $errorMessages[] = $error->getPropertyPath() . ': ' . $error->getMessage();
+                $messages[] = $error->getPropertyPath() . ': ' . $error->getMessage();
             }
-            return $this->json(['errors' => $errorMessages], 400);
+            return $this->json(['errors' => $messages], 400);
         }
         return null;
     }
 
-     private function getCurrentUserId(): string
+    private function getCurrentUserId(): string
     {
         $user = $this->getUser();
-
         if (!$user) {
             throw $this->createAccessDeniedException('User not authenticated');
         }
-
         return $user->getUserIdentifier();
     }
 
     #[Route('', name: 'get', methods: ['GET'])]
     public function getCart(): JsonResponse
     {
-        $userId = $this->getCurrentUserId();
-        return $this->json($this->cartService->getCart($userId));
+        $userId = (int) $this->getCurrentUserId();
+        $cartItems = $this->cartService->getCart($userId);
+
+        $cartResponse = CartMapper::toCartResponseDto($cartItems);
+        return $this->json($cartResponse);
     }
 
     #[Route('/add', name: 'add', methods: ['POST'])]
     public function addItem(Request $request): JsonResponse
     {
-        $content = $request->getContent();
-        if (empty($content)) {
-            return $this->json(['error' => 'Empty body'], 400);
-        }
+        $dto = $this->serializer->deserialize($request->getContent(), AddItemRequestDto::class, 'json');
+        if ($response = $this->validateDto($dto)) return $response;
 
-        // Deserialize into DTO
-        $dto = $this->serializer->deserialize($content, AddItemDto::class, 'json');
+        $userId = (int) $this->getCurrentUserId();
+        $cartItem = CartMapper::fromAddDto($dto, $userId);
 
-        // Validate DTO
-        $errors = $this->validator->validate($dto);
-        if (count($errors) > 0) {
-            $messages = [];
-            foreach ($errors as $error) {
-                $messages[] = $error->getPropertyPath() . ': ' . $error->getMessage();
-            }
-            return $this->json(['errors' => $messages], 400);
-        }
+        $this->cartService->addItem($cartItem);
 
-        // Add item using CartService
-        $userId = $this->getCurrentUserId();
-        $cart = $this->cartService->addItem($userId, $dto->productId, $dto->quantity);
-
-        return $this->json([
-            'message' => "Item added to cart",
-            'cart' => $cart
-        ]);
+        return $this->getCart();
     }
 
     #[Route('/update', name: 'update', methods: ['PUT'])]
     public function updateItem(Request $request): JsonResponse
     {
-        $dto = $this->serializer->deserialize($request->getContent(), UpdateItemDto::class, 'json');
+        $dto = $this->serializer->deserialize($request->getContent(), UpdateItemRequestDto::class, 'json');
+        if ($response = $this->validateDto($dto)) return $response;
 
-        $errors = $this->validator->validate($dto);
-        if (count($errors) > 0) {
-            $messages = [];
-            foreach ($errors as $error) {
-                $messages[] = $error->getPropertyPath() . ': ' . $error->getMessage();
-            }
-            return $this->json(['errors' => $messages], 400);
-        }
+        $userId = (int) $this->getCurrentUserId();
+        $cartItem = CartMapper::fromUpdateDto($dto, $userId);
 
-        $userId = $this->getCurrentUserId();
-        $cart = $this->cartService->updateQuantity($userId, $dto->productId, $dto->quantity);
+        $this->cartService->updateItem($userId, $cartItem);
 
-        return $this->json([
-            'message' => 'Item updated in cart',
-            'cart' => $cart
-        ]);
-}
+        return $this->getCart();
+    }
 
-    #[Route('/{productId}', name: 'delete_item', methods: ['DELETE'])]
-    public function deleteItem(int $productId): JsonResponse
+    #[Route('/delete', name: 'delete_item', methods: ['DELETE'])]
+    public function deleteItem(Request $request): JsonResponse
     {
-        $this->cartService->removeItem($this->getCurrentUserId(), $productId);
+        $dto = $this->serializer->deserialize($request->getContent(), DeleteItemRequestDto::class, 'json');
+        if ($response = $this->validateDto($dto)) return $response;
 
-        return $this->json([
-            'message' => 'Item removed from cart',
-            'productId' => $productId
-        ]);
+        $userId = (int) $this->getCurrentUserId();
+        $this->cartService->removeItem($userId, $dto->productId);
+
+        $deleteResponse = new DeleteItemResponseDto();
+        return $this->json($deleteResponse);
     }
 
     #[Route('/clear', name: 'clear', methods: ['POST'])]
     public function clearCart(): JsonResponse
     {
-        $userId = $this->getCurrentUserId();
+        $userId = (int) $this->getCurrentUserId();
         $this->cartService->clearCart($userId);
+
         return $this->json(['message' => 'Cart cleared']);
     }
-
-    #[Route('/test', name: 'api_cart_test', methods: ['GET'])]
+     #[Route('/test', name: 'api_cart_test', methods: ['GET'])]
     public function testJwt(Request $request): JsonResponse
     {
         $authHeader = $request->headers->get('Authorization');
@@ -146,7 +125,7 @@ class CartController extends AbstractController
     public function devToken(\Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface $jwtManager)
     {
         $user = new \Lexik\Bundle\JWTAuthenticationBundle\Security\User\JWTUser(
-            'testuser',          // This becomes user_identifier
+            '123',          // This becomes user_identifier
             ['ROLE_USER']        // Optional roles
         );
 

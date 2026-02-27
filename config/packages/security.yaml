@@ -8,7 +8,7 @@ security:
         in_memory_users:
             memory:
                 users:
-                    testuser:
+                    123:
                         password: 'test'   # Not used for JWT
                         roles: ['ROLE_USER']
 

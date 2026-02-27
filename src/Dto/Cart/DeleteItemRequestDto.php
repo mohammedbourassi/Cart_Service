@@ -3,8 +3,8 @@ namespace App\Dto\Cart;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-class RemoveItemDto
+class DeleteItemRequestDto
 {
     #[Assert\NotBlank]
-    public string $productId;
+    public int $productId;
 }

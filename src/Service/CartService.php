@@ -1,86 +1,75 @@
 <?php
+
 namespace App\Service;
 
-use Symfony\Contracts\Cache\CacheInterface;
-use Symfony\Contracts\Cache\ItemInterface;
 
-class CartService
+use App\Repository\CartRepositoryInterface;
+use App\Model\CartItem;
+
+class CartService implements CartServiceInterface
 {
-    private CacheInterface $cache;
+    private CartRepositoryInterface $cartRepository;
 
-    public function __construct(CacheInterface $cartStorage)
+    public function __construct(CartRepositoryInterface $cartRepository)
     {
-        $this->cache = $cartStorage;
+        $this->cartRepository = $cartRepository;
     }
 
-    private function getCartKey(string $userId): string
+    // Ajoute ou met à jour un produit dans le panier
+    public function addItem(CartItem $item): void
     {
-        return "cart:{$userId}";
-    }
-
-    // Get the current cart for a user
-    public function getCart(string $userId): array
-    {
-        return $this->cache->get($this->getCartKey($userId), function (ItemInterface $item) {
-            $item->expiresAfter(1800); // 30 min
-            return [];
-        });
-    }
-
-    // Add an item to the cart
-    public function addItem(string $userId, string $productId, int $quantity = 1): array
-    {
-        $cart = $this->getCart($userId);
-        $cart[$productId] = ($cart[$productId] ?? 0) + $quantity;
-
-        // Store updated cart in cache
-        $this->cache->delete($this->getCartKey($userId));
-        $this->cache->get($this->getCartKey($userId), function (ItemInterface $item) use ($cart) {
-            $item->expiresAfter(1800);
-            return $cart;
-        });
-
-        return $cart;
-    }
-
-    // Update the quantity of an item
-    public function updateQuantity(string $userId, string $productId, int $quantity): array
-    {
-        $cart = $this->getCart($userId);
-
-        if ($quantity <= 0) {
-            unset($cart[$productId]);
-        } else {
-            $cart[$productId] = $quantity;
+        if ($item->getQuantity() <= 0) {
+            throw new \InvalidArgumentException('Quantity must be greater than zero.');
         }
 
-        $this->cache->delete($this->getCartKey($userId));
-        $this->cache->get($this->getCartKey($userId), function (ItemInterface $item) use ($cart) {
-            $item->expiresAfter(1800);
-            return $cart;
-        });
+        $userId = $item->getUserId();
+        $productId = $item->getProductId();
 
-        return $cart;
+        $items = $this->cartRepository->getCart($userId);
+
+        if (isset($items[$productId])) {
+            $existingItem = $items[$productId];
+            $existingItem->setQuantity(
+                $existingItem->getQuantity() + $item->getQuantity()
+            );
+            $this->cartRepository->updateCart($userId, $existingItem);
+        } else {
+            $this->cartRepository->addToCart($userId, $item);
+        }
     }
 
-    // Remove an item from the cart
-    public function removeItem(string $userId, string $productId): array
+    // Supprime un produit du panier
+    public function removeItem(int $userId, int $productId): void
     {
-        $cart = $this->getCart($userId);
-        unset($cart[$productId]);
+        $existing = $this->cartRepository->getItem($userId, $productId);
 
-        $this->cache->delete($this->getCartKey($userId));
-        $this->cache->get($this->getCartKey($userId), function (ItemInterface $item) use ($cart) {
-            $item->expiresAfter(1800);
-            return $cart;
-        });
-
-        return $cart;
+        if ($existing === null) {
+            throw new \RuntimeException('Item not found in cart.');
+        }
+        $this->cartRepository->removeFromCart($userId, $productId);
     }
 
-    // Clear the entire cart
-    public function clearCart(string $userId): void
+    // Vide tout le panier
+    public function clearCart(int $userId): void
     {
-        $this->cache->delete($this->getCartKey($userId));
+        $this->cartRepository->clearCart($userId);
+    }
+
+    // Retourne tous les items du panier
+    public function getCart(int $userId): array
+    {
+        return $this->cartRepository->getCart($userId);
+    }
+
+    // Met à jour un item spécifique du panier
+    public function updateItem(int $userId, CartItem $item): void
+    {
+        $existing = $this->cartRepository->getItem($userId, $item->getProductId());
+
+        if ($existing === null) {
+            throw new \RuntimeException('Item not found in cart.');
+        }
+
+        $this->cartRepository->updateCart($userId, $item);
     }
 }
