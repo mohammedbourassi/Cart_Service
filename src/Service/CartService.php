@@ -2,74 +2,85 @@
 
 namespace App\Service;
 
-
-use App\Repository\CartRepositoryInterface;
+use App\Dto\Cart\AddItemRequestDto;
 use App\Model\CartItem;
+use Symfony\Component\HttpFoundation\Cookie;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class CartService implements CartServiceInterface
 {
-    private CartRepositoryInterface $cartRepository;
-
-    public function __construct(CartRepositoryInterface $cartRepository)
+    public function getCart(Request $request)
     {
-        $this->cartRepository = $cartRepository;
+        $cartCookie = $request->cookies->get('cart');
+        if ($cartCookie) {
+            return json_decode($cartCookie, true);
+        }
+        return [];
     }
 
-    // Ajoute ou met à jour un produit dans le panier
-    public function addItem(CartItem $item): void
+    public function getItem(array $cart, int $productId): ?CartItem
     {
-        if ($item->getQuantity() <= 0) {
-            throw new \InvalidArgumentException('Quantity must be greater than zero.');
-        }
+        if (isset($cart[$productId])) {
+        $item = $cart[$productId];
+        return new CartItem(
+            $item['productId'],
+            $item['name'],
+            $item['quantity'],
+            $item['price']
+        );
+    }
+    return null;
+    }
 
-        $userId = $item->getUserId();
-        $productId = $item->getProductId();
+    public function addItem(array $cart, CartItem $item): array
+    {
+    
+        $existingItem = $this->getItem($cart, $item->getProductId());
 
-        $items = $this->cartRepository->getCart($userId);
-
-        if (isset($items[$productId])) {
-            $existingItem = $items[$productId];
-            $existingItem->setQuantity(
-                $existingItem->getQuantity() + $item->getQuantity()
-            );
-            $this->cartRepository->updateCart($userId, $existingItem);
+        if ($existingItem !== null) {
+            $cart[$item->getProductId()]['quantity'] += $item->getQuantity();
         } else {
-            $this->cartRepository->addToCart($userId, $item);
+            $cart[$item->getProductId()] = $item->toArray();
         }
+        return $cart;
     }
 
-    // Supprime un produit du panier
-    public function removeItem(int $userId, int $productId): void
+    public function removeItem(array $cart, int $productId): array
     {
-        $existing = $this->cartRepository->getItem($userId, $productId);
-
-        if ($existing === null) {
-            throw new \RuntimeException('Item not found in cart.');
+        if (isset($cart[$productId])) {
+            unset($cart[$productId]);
         }
-        $this->cartRepository->removeFromCart($userId, $productId);
+        return $cart;
     }
 
-    // Vide tout le panier
-    public function clearCart(int $userId): void
+    public function clearCart(): array
     {
-        $this->cartRepository->clearCart($userId);
+        return [];
     }
 
-    // Retourne tous les items du panier
-    public function getCart(int $userId): array
+    public function updateItemQuantity(array $cart, int $productId, int $quantity): array
     {
-        return $this->cartRepository->getCart($userId);
-    }
-
-    // Met à jour un item spécifique du panier
-    public function updateItem(int $userId, CartItem $item): void
-    {
-        $existing = $this->cartRepository->getItem($userId, $item->getProductId());
-
-        if ($existing === null) {
-            throw new \RuntimeException('Item not found in cart.');
+        if (isset($cart[$productId])) {
+            $cart[$productId]['quantity'] = $quantity;
         }
+        return $cart;
+    }
 
-        $this->cartRepository->updateCart($userId, $item);
+    public function saveCart(Response $response, array $cart)
+    {
+        $cookie = Cookie::create(
+            'cart',
+            json_encode($cart),   // JSON string of cart
+            new \DateTime('+30 days'), // expiration
+            '/',                  // path
+            null,                 // domain
+            false,                // secure
+            true,                 // httpOnly
+            false,                // raw
+            'lax'                 // SameSite
+        );
+
+        $response->headers->setCookie($cookie);
     }
 }

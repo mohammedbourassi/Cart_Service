@@ -3,14 +3,24 @@
 namespace App\Service;
 
 use App\Model\CartItem;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 interface CartServiceInterface
 {
 
-    public function addItem(CartItem $item);
-    public function removeItem(int $userId, int $productId);
-    public function clearCart(int $userId);
-    public function getCart(int $userId);
-    public function updateItem(int $userId, CartItem $item);
+    public function getCart(Request $request);
+
+    public function getItem(array $cart, int $productId): ?CartItem;
+
+    public function addItem(array $cart, CartItem $dto): array;
+
+    public function removeItem(array $cart, int $productId): array;
+
+    public function clearCart(): array;
+
+    public function updateItemQuantity(array $cart, int $productId, int $quantity): array;
+
+    public function saveCart(Response $response, array $cart);
 
 }

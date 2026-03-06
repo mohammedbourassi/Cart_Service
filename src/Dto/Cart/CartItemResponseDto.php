@@ -17,4 +17,5 @@ class CartItemResponseDto
         $this->quantity = $quantity;
         $this->subtotal = $price * $quantity;
     }
+    
 }

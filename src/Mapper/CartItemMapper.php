@@ -2,12 +2,11 @@
 namespace App\Mapper;
 
 use App\Dto\Cart\CartItemResponseDto;
-use App\Dto\Cart\CartResponseDto;
 use App\Dto\Cart\AddItemRequestDto;
-use App\Dto\Cart\UpdateItemRequestDto;
+use App\Dto\Cart\UpdateItemQuantityRequestDto;
 use App\Model\CartItem;
 
-class CartMapper
+class CartItemMapper
 {
     /**
      * Map CartItem domain model to CartItemResponseDto
@@ -27,41 +26,26 @@ class CartMapper
      *
      * @param CartItem[] $items
      */
-    public static function toCartResponseDto(array $items): CartResponseDto
-    {
-        $itemsDto = array_map(
-            fn(CartItem $item) => self::toCartItemResponseDto($item),
-            $items
-        );
-
-        return new CartResponseDto($itemsDto);
-    }
-
+    
     /**
      * Map AddItemRequestDto to CartItem domain model
      */
-    public static function fromAddDto(AddItemRequestDto $dto, string $userId): CartItem
+    public static function fromAddDto(AddItemRequestDto $dto): CartItem
     {
         return new CartItem(
             (int) $dto->productId,
             $dto->name,
             (int) $dto->quantity, 
-            (float) $dto->price,
-            $userId                // string
+            (float) $dto->price           
         );
     }
 
     /**
      * Map UpdateItemRequestDto to CartItem domain model
      */
-    public static function fromUpdateDto(UpdateItemRequestDto $dto, string $userId): CartItem
+    public static function fromUpdateDto(UpdateItemQuantityRequestDto $dto, CartItem $item): CartItem
     {
-        return new CartItem(
-            (int) $dto->productId,
-            $dto->name,
-            (int) $dto->quantity, 
-            (float) $dto->price,
-            $userId            
-        );
+        $item->setQuantity((int) $dto->quantity);
+        return $item;
     }
 }
