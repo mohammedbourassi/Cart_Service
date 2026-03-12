@@ -2,31 +2,31 @@
 
 namespace App\Service;
 
+use App\Service\JWTServiceInterface;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
-class JWTService
+
+class JWTService implements JWTServiceInterface
 {
     private $secretKey;
     private $algorithm;
 
-    public function __construct(string $secretKey, string $algorithm = 'HS256')
+    public function __construct()
     {
-        $this->secretKey = $secretKey;
-        $this->algorithm = $algorithm;
     }
 
-    public function generateToken(array $payload, int $expiration = 3600): string
-    {
-        $payload['exp'] = time() + $expiration;
-        return JWT::encode($payload, $this->secretKey, $this->algorithm);
-    }
-
-    public function decodeToken(string $token): array
+    public function decodeToken(string $token, string $secretKey, string $algorithm): array
     {
         try {
-            return (array) JWT::decode($token, new Key($this->secretKey, $this->algorithm));
+            return (array) JWT::decode($token, new Key($secretKey, $algorithm));
         } catch (\Exception $e) {
             throw new \InvalidArgumentException('Invalid token: ' . $e->getMessage());
         }
+    }
+
+    public function getUserId(string $token , string $secretKey, string $algorithm): int
+    {
+        $decodedToken = $this->decodeToken($token, $secretKey, $algorithm);
+        return $decodedToken['userId'];
     }
 }

@@ -7,8 +7,10 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 
-# parameters:
+parameters:
 #     locale: 'en'
+    jwt_secret: '%env(JWT_SECRET)%'
+    jwt_algorithm: '%env(JWT_ALGORITHM)%'
 
 services:
     # default configuration for services in *this* file
@@ -27,7 +29,15 @@ services:
         class: Predis\Client
         arguments:
             - 'tcp://127.0.0.1:6379'
-            
-    App\Repository\CartRepositoryInterface: '@App\Repository\CartRepository'
 
-    App\Service\CartServiceInterface: '@App\Service\CartService'
+    App\Security\JwtAuthenticator:
+        arguments:
+            $jwtSecret: '%jwt_secret%'
+            $jwtAlgorithm: '%jwt_algorithm%'
+
+    App\Service\OrderServiceInterface: '@App\Service\OrderService'
+    App\Service\OrderItemServiceInterface: '@App\Service\OrderItemService'
+    App\Service\ProductServiceInterface: '@App\Service\ProductService'
+    App\Service\JWTServiceInterface: '@App\Service\JWTService'
+    App\Service\VerifyUserInputServicesInterface: '@App\Service\VerifyUserInputServices'
+

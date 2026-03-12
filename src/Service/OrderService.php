@@ -2,159 +2,69 @@
 
 namespace App\Service;
 
-use App\Entity\Order;
-use App\Entity\OrderItem;
+use App\Entity\Orders;
 use App\Enum\OrderStatus;
-use App\Repository\OrderRepository;
-use App\Repository\ProductRepository;
+use App\Exception\OrderCannotBeCancelledException;
+use App\Repository\OrdersRepository;
+use App\Service\OrderServiceInterface;
 
-class OrderService{
-
-    public function __construct(private OrderRepository $orderRepository, private ProductRepository $productRepository){}
-    
-    public function createOrder(int $userId, array $cart): Order
-    {
-        $order = new Order();
-        $order->setUserId($userId);
-        $order->setStatus(OrderStatus::PENDING);
-        $order->setCreatedAt(new \DateTimeImmutable());
-        $order->setUpdatedAt(new \DateTimeImmutable());
-
-        $totalAmount = 0;
-
-       foreach ($cart as $item) {
-            $product = $this->productRepository->find($item['productId']);
-            if (!$product) {
-                throw new \Exception("Product ID {$item['productId']} not found");
-            }
-
-            $quantity = $item['quantity'];
-            $itemTotal = $product->getPrice() * $quantity;
-
-            $orderItem = new OrderItem();
-            $orderItem->setOrderId($order)          // pass Order entity
-                    ->setProductId($product)      // pass Product entity
-                    ->setProductName($product->getName())
-                    ->setPrice($product->getPrice())
-                    ->setQuantity($quantity)
-                    ->setTotal($itemTotal);
-
-            $order->addOrderItem($orderItem);
-
-            $totalAmount += $itemTotal;
-        }
-
-        // Set total and persist order (items cascade)
-        $order->setTotalAmount($totalAmount);
-        $entityManager = $this->orderRepository->getEntityManager();
-        $entityManager->persist($order);
-        $entityManager->flush();
-
+class OrderService implements OrderServiceInterface
+{
+    public function __construct(
+        private OrdersRepository $ordersRepository,
         
+     ){}
+
+     public function createOrder(int $userId, string $shipping_address): Orders
+     {
+        $order = new Orders();
+        $order
+        ->setUserId($userId)
+        ->setTotalAmount(0)
+        ->setCreatedAt(new \DateTimeImmutable())
+        ->setStatus(OrderStatus::PENDING)
+        ->setShippingAddress($shipping_address);
+        $this->ordersRepository->add($order);
         return $order;
-    }
-    public function getOrders(int $userId) : array
-    {
-        $orders = $this->orderRepository->findBy(['userId' => $userId], ['createdAt' => 'DESC']);
+     }
+     public function addOrder(Orders $order)
+     {
+        $this->ordersRepository->add($order);
+     }
 
-        $result = [];
+     public function getOrders(int $userId) : array
+     {
+        return $this->ordersRepository->findBy(['user_id' => $userId]);
+     }
 
-        foreach ($orders as $order) {
-            $items = [];
-            foreach ($order->getOrderItems() as $item) {
-                $items[] = [
-                    'productId' => $item->getProductId(),
-                    'productName' => $item->getProductName(),
-                    'price' => $item->getPrice(),
-                    'quantity' => $item->getQuantity(),
-                    'total' => $item->getTotal(),
-                ];
-            }
+     public function getOrder(int $orderId) : Orders
+     {
+        return $this->ordersRepository->find($orderId);
+     }
 
-            $result[] = [
-                'orderId' => $order->getId(),
-                'totalAmount' => $order->getTotalAmount(),
-                'status' => $order->getStatus(),
-                'createdAt' => $order->getCreatedAt()->format('Y-m-d H:i:s'),
-                'updatedAt' => $order->getUpdatedAt()->format('Y-m-d H:i:s'),
-                'items' => $items,
-            ];
+     public function modifyOrderStatus(int $orderId, OrderStatus $status)
+     {
+        $order = $this->ordersRepository->find($orderId);
+        $order->setStatus($status);
+        $this->ordersRepository->add($order);
+     }
+
+     public function cancelOrder(int $orderId)
+     {
+        $order = $this->ordersRepository->find($orderId);
+        if($order->getStatus() == OrderStatus::PENDING){
+            $order->setStatus(OrderStatus::CANCELLED);
+            $this->ordersRepository->add($order);
         }
-
-        return $result;
-    }
-
-    public function getOrderItems(int $orderId) : array
-    {
-        $order = $this->orderRepository->find($orderId);
-
-        if (!$order) {
-            throw new \Exception("Order ID {$orderId} not found");
+        else{
+            throw new OrderCannotBeCancelledException('Order cannot be cancelled');
         }
+     }
 
-        $items = [];
-        foreach ($order->getOrderItems() as $item) {
-            $items[] = [
-                'orderItemId' => $item->getId(),
-                'productId' => $item->getProductId(),
-                'productName' => $item->getProductName(),
-                'price' => $item->getPrice(),
-                'quantity' => $item->getQuantity(),
-                'total' => $item->getTotal(),
-            ];
-        }
+     public function deleteOrder(Orders $order)
+     {
+        $this->ordersRepository->remove($order, true);
+     }
 
-        return [
-            'orderId' => $order->getId(),
-            'userId' => $order->getUserId(),
-            'status' => $order->getStatus(),
-            'totalAmount' => $order->getTotalAmount(),
-            'createdAt' => $order->getCreatedAt()->format('Y-m-d H:i:s'),
-            'updatedAt' => $order->getUpdatedAt()->format('Y-m-d H:i:s'),
-            'items' => $items,
-        ];
-    }
-
-    public function cancelOrder(int $orderId): Order
-    {
-        $order = $this->orderRepository->find($orderId);
-
-        if (!$order) {
-            throw new \Exception("Order ID {$orderId} not found");
-        }
-
-        // Only pending orders can be cancelled
-        if ($order->getStatus() !== 'pending') {
-            throw new \Exception("Only pending orders can be cancelled");
-        }
-
-        $order->setStatus('cancelled');
-        $order->setUpdatedAt(new \DateTime());
-
-        $this->orderRepository->save($order);
-
-        return $order;
-    }
-
-    public function confirmOrder(int $orderId)
-    {
-        $order = $this->orderRepository->find($orderId);
-
-        if (!$order) {
-            throw new \Exception("Order ID {$orderId} not found");
-        }
-
-        // Only pending orders can be confirmed
-        if ($order->getStatus() !== 'pending') {
-            throw new \Exception("Only pending orders can be confirmed");
-        }
-
-        $order->setStatus(OrderStatus::CONFIRMED);
-        $order->setUpdatedAt(new \DateTime());
-
-        $this->orderRepository->save($order);
-
-        return $order;
-    }
-    
+     
 }
