@@ -97,9 +97,7 @@ class OrderItemsRepository extends ServiceEntityRepository
     public function getOrdersOfMyItemsByUser(int $userId, int $sellerId) : array
     {
         return $this->createQueryBuilder('oi')
-        ->select('oi.id, oi.quantity, oi.price, oi.status, oi.seller_id, oi.created_at')
-        ->addSelect('p.name AS product_name')
-        ->addSelect('o.user_id')
+        ->select('oi.id, oi.quantity, oi.price, oi.status, oi.seller_id, oi.created_at, o.user_id, p.name')
         ->leftJoin('oi.product', 'p')
         ->leftJoin('oi.order_', 'o')
         ->andWhere('o.user_id = :userId')

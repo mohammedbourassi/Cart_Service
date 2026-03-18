@@ -2,10 +2,10 @@
 
 namespace App\Controller;
 
-use App\Entity\Products;
+
 use App\Service\ProductServiceInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\BrowserKit\Request;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -21,6 +21,7 @@ final class ProductController extends AbstractController
     {
         $sellerId = (int) $this->getUser()->getUserIdentifier();
         $products = $this->productService->getProductsOfSeller($sellerId);
+        
         return $this->json($products);
     }
 
@@ -28,7 +29,7 @@ final class ProductController extends AbstractController
     public function getProduct(int $id): Response
     {
         $sellerId = (int) $this->getUser()->getUserIdentifier();
-        $product = $this->productService->getProduct($id, $sellerId);
+        $product = $this->productService->getProductsOfSellerById($id, $sellerId);
         return $this->json($product);
     }
 
@@ -44,17 +45,7 @@ final class ProductController extends AbstractController
         if (!$data) {
             return $this->json(['message' => 'Invalid data'], Response::HTTP_BAD_REQUEST);
         }
-
-        $product = new Products()
-            ->setName($data['name'])
-            ->setDescription($data['description'])
-            ->setPrice($data['price'])
-            ->setStock($data['stock'])
-            ->setType($data['type'])
-            ->setSellerId($sellerId)
-            ->setCreatedAt(new \DateTimeImmutable());
-
-        $this->productService->addProduct($product);
+        $this->productService->addProduct($data, $sellerId);
         return $this->json(['message' => 'Product added successfully'], Response::HTTP_CREATED);
     }
 
@@ -66,13 +57,13 @@ final class ProductController extends AbstractController
             return $this->json(['message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
         }
         $data = json_decode($request->getContent(), true);
-        if (!$data || !isset($data['quantity'])) {
+        if (!$data || !isset($data['stock'])) {
             return $this->json(['message' => 'Invalid data'], Response::HTTP_BAD_REQUEST);
         }
-        $quantity = (int) $data['quantity'];
+        $stock = (int) $data['stock'];
         $sellerId = (int) $this->getUser()->getUserIdentifier();
         try {
-            $this->productService->changeProductStock($id, $quantity, $sellerId);
+            $this->productService->changeProductStock($id, $stock, $sellerId);
             return $this->json(['message' => 'Stock updated successfully']);
         } catch (\Exception $e) {
             return $this->json(['message' => $e->getMessage()], Response::HTTP_BAD_REQUEST);

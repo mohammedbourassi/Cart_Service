@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\Products;
+use App\Mapper\ProductMapper;
 use App\Repository\ProductsRepository;
 use App\Service\ProductServiceInterface;
 
@@ -10,7 +11,8 @@ use App\Service\ProductServiceInterface;
 class ProductService implements ProductServiceInterface
 {
     public function __construct(
-        private ProductsRepository $productRepository
+        private ProductsRepository $productRepository,
+        private VerifyUserInputServicesInterface $verifyUserInputServices
     ){}
 
     public function getProduct(int $productId)
@@ -23,6 +25,10 @@ class ProductService implements ProductServiceInterface
         
          $product = $this->productRepository->getOneProduct($productId, $sellerId);
          return $product;
+   }
+   public function getProductsOfSellerById(int $productId, int $sellerId)
+   {
+        return $this->productRepository->getProductOfSellerById($productId, $sellerId);
    }
 
    public function decreaseStock(int $productId, int $quantity):void
@@ -39,29 +45,41 @@ class ProductService implements ProductServiceInterface
        $this->productRepository->add($product, true);
    }
 
-   public function addProduct(Products $product): void
+   public function saveProduct(Products $product): void
    {
-       $this->productRepository->add($product, true);
+       $this->productRepository->save($product, true);
    }
 
    public function getProductsOfSeller(int $sellerId) 
    {
-        return $this->productRepository->findBy(['seller_id' => $sellerId]);    
+        return $this->productRepository->getProductsOfSeller($sellerId);    
    }
 
-   public function changeProductStock(int $productId, int $quantity, int $sellerId): void
+   public function addProduct(array $data, int $sellerId): void
    {
-       $product = $this->productRepository->getOneProduct($productId, $sellerId);
+        try {
+            $this->verifyUserInputServices->verifyProduct($data);
+            $product = ProductMapper::toEntity($data, $sellerId);
+            $this->productRepository->save($product, true);
+        } catch (\Exception $e) {
+            throw new \Exception('Failed to add product: ' . $e->getMessage());
+        }
+   }
+
+   public function changeProductStock(int $productId, int $stock, int $sellerId): void
+   {
+        $this->verifyUserInputServices->verifyStock($stock);
+        $product = $this->productRepository->getProduct($productId, $sellerId);
         if (!$product) {
             throw new \Exception('Product not found');
         }
-       $product->setStock($quantity);
-       $this->productRepository->add($product, true);
+        $product->setStock($stock);
+        $this->productRepository->save($product, true);
    }
 
    public function removeProduct(int $productId, int $sellerId): void
    {
-       $product = $this->productRepository->getOneProduct($productId, $sellerId);
+       $product = $this->productRepository->getProduct($productId, $sellerId);
         if (!$product) {
             throw new \Exception('Product not found');
         }

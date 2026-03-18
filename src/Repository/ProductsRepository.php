@@ -40,7 +40,7 @@ class ProductsRepository extends ServiceEntityRepository
     //            ->getOneOrNullResult()
     //        ;
     //    }
-    public function add(Products $entity, bool $flush = true): void
+    public function save(Products $entity, bool $flush = true): void
     {
         $this->getEntityManager()->persist($entity);
 
@@ -54,7 +54,7 @@ class ProductsRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('p')
         ->select('p.id, p.name, p.description, p.price, p.stock, p.type')
         ->andWhere('p.id = :productId')
-        ->andWhere('p.seller_id = :sellerId')
+        ->andWhere('p.seller_Id = :sellerId')
         ->setParameter('productId', $productId)
         ->setParameter('sellerId', $sellerID)
         ->getQuery()
@@ -62,5 +62,47 @@ class ProductsRepository extends ServiceEntityRepository
         
     }
 
-    
+    public function getProduct(int $productId, int $sellerID) : ?Products
+    {
+        return $this->createQueryBuilder('p')
+        ->select('p')
+        ->andWhere('p.id = :productId')
+        ->andWhere('p.seller_Id = :sellerId')
+        ->setParameter('productId', $productId)
+        ->setParameter('sellerId', $sellerID)
+        ->getQuery()
+        ->getOneOrNullResult();
+        
+    }
+
+    public function getProductsOfSeller(int $sellerId) 
+    {
+        return $this->createQueryBuilder('p')
+        ->select('p')
+        ->andWhere('p.seller_Id = :sellerId')
+        ->setParameter('sellerId', $sellerId)
+        ->getQuery()
+        ->getArrayResult();
+    }
+
+    public function getProductOfSellerById(int $productId, int $sellerId) 
+    {
+        return $this->createQueryBuilder('p')
+        ->select('p')
+        ->andWhere('p.id = :productId')
+        ->andWhere('p.seller_Id = :sellerId')
+        ->setParameter('productId', $productId)
+        ->setParameter('sellerId', $sellerId)
+        ->getQuery()
+        ->getArrayResult();
+    }
+
+    public function remove(Products $entity, bool $flush = true): void
+    {
+        $this->getEntityManager()->remove($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
 }
