@@ -8,13 +8,6 @@ use Firebase\JWT\Key;
 
 class JWTService implements JWTServiceInterface
 {
-    private $secretKey;
-    private $algorithm;
-
-    public function __construct()
-    {
-    }
-
     public function decodeToken(string $token, string $secretKey, string $algorithm): array
     {
         try {
@@ -28,5 +21,16 @@ class JWTService implements JWTServiceInterface
     {
         $decodedToken = $this->decodeToken($token, $secretKey, $algorithm);
         return $decodedToken['userId'];
+    }
+
+    public function getUserRole(string $token, string $secretKey, string $algorithm): string
+    {
+        $decodedToken = $this->decodeToken($token, $secretKey, $algorithm);
+
+        if (!isset($decodedToken['role'])) {
+            throw new \InvalidArgumentException('Token does not contain a role');
+        }
+
+        return $decodedToken['role'];
     }
 }

@@ -12,9 +12,17 @@ class ProductService implements ProductServiceInterface
     public function __construct(
         private ProductsRepository $productRepository
     ){}
-   public function getProduct(int $productId):Products
+
+    public function getProduct(int $productId)
+    {
+        $product = $this->productRepository->find($productId);
+        return $product;
+    }
+   public function getProductBySeller(int $productId, int $sellerId)
    {
-       return $this->productRepository->find($productId);
+        
+         $product = $this->productRepository->getOneProduct($productId, $sellerId);
+         return $product;
    }
 
    public function decreaseStock(int $productId, int $quantity):void
@@ -31,9 +39,33 @@ class ProductService implements ProductServiceInterface
        $this->productRepository->add($product, true);
    }
 
-   public function getProductName(Products $product):string
+   public function addProduct(Products $product): void
    {
-       $product = $this->productRepository->find($product);
-       return $product->getName();
+       $this->productRepository->add($product, true);
    }
+
+   public function getProductsOfSeller(int $sellerId) 
+   {
+        return $this->productRepository->findBy(['seller_id' => $sellerId]);    
+   }
+
+   public function changeProductStock(int $productId, int $quantity, int $sellerId): void
+   {
+       $product = $this->productRepository->getOneProduct($productId, $sellerId);
+        if (!$product) {
+            throw new \Exception('Product not found');
+        }
+       $product->setStock($quantity);
+       $this->productRepository->add($product, true);
+   }
+
+   public function removeProduct(int $productId, int $sellerId): void
+   {
+       $product = $this->productRepository->getOneProduct($productId, $sellerId);
+        if (!$product) {
+            throw new \Exception('Product not found');
+        }
+       $this->productRepository->remove($product, true);
+   }
+   
 }

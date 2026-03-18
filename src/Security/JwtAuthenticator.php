@@ -18,67 +18,51 @@ class JwtAuthenticator extends AbstractAuthenticator
 {
     public function __construct(
         private JWTServiceInterface $jwtService,
-         private string $jwtSecret, 
-         private string $jwtAlgorithm
+        private string $jwtSecret, 
+        private string $jwtAlgorithm
     ) {}
+
     public function supports(Request $request): ?bool
     {
-        // TODO: Implement supports() method.
         return $request->headers->has('Authorization');
     }
 
     public function authenticate(Request $request): Passport
     {
-        // TODO: Implement authenticate() method.
-         $authHeader = $request->headers->get('Authorization');
-         
+        $authHeader = $request->headers->get('Authorization');
 
         if (!$authHeader || !preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
             throw new AuthenticationException('Missing or invalid Authorization header');
-
         }
 
         $token = $matches[1];
-        
+
         try {
-            // ✅ Use your service to get the user ID
-            $userId = $this->jwtService->getUserId($token, $this->jwtSecret, $this->jwtAlgorithm);
+            // Decode token payload
+            $payload = $this->jwtService->decodeToken($token, $this->jwtSecret, $this->jwtAlgorithm);
+            $userId = $payload['userId'];
+            $roles = isset($payload['role']) ? [$payload['role']] : []; // wrap as array
         } catch (\Exception $e) {
             throw new AuthenticationException('Invalid token: ' . $e->getMessage());
         }
 
-        // Optional: attach userId to request attributes for controllers
+        // Attach to request for controllers
         $request->attributes->set('userId', $userId);
-        
-        // Return a Passport with the UserBadge (Symfony internal)
+        $request->attributes->set('roles', $roles);
+
+        // Pass userId + roles to ApiUser 
         return new SelfValidatingPassport(
-            new UserBadge($userId, function ($userIdentifier) {
-                return new ApiUser($userIdentifier);
-            })
+            new UserBadge($userId, fn($id) => new ApiUser($id, $roles))
         );
-    
     }
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
-        // TODO: Implement onAuthenticationSuccess() method.
         return null; // continue to controller
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
-        // TODO: Implement onAuthenticationFailure() method.
-        return new JsonResponse(['error' => $exception->getMessage()], 401);
+        return new JsonResponse(['error' => $exception->getMessage()], Response::HTTP_UNAUTHORIZED);
     }
-
-    //    public function start(Request $request, ?AuthenticationException $authException = null): Response
-    //    {
-    //        /*
-    //         * If you would like this class to control what happens when an anonymous user accesses a
-    //         * protected page (e.g. redirect to /login), uncomment this method and make this class
-    //         * implement Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface.
-    //         *
-    //         * For more details, see https://symfony.com/doc/current/security/experimental_authenticators.html#configuring-the-authentication-entry-point
-    //         */
-    //    }
 }

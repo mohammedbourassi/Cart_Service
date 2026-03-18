@@ -41,7 +41,7 @@ class OrdersRepository extends ServiceEntityRepository
 //            ->getOneOrNullResult()
 //        ;
 //    }
-    public function add(Orders $entity, bool $flush = true): void
+    public function save(Orders $entity, bool $flush = true): void
     {
         $this->getEntityManager()->persist($entity);
 
@@ -57,6 +57,32 @@ class OrdersRepository extends ServiceEntityRepository
         if ($flush) {
             $this->getEntityManager()->flush();
         }
+    }
+
+    public function getOrders(int $userId): array
+    {
+        return $this->createQueryBuilder('o')
+            ->select('o.id, o.user_id, o.shipping_address, o.status, o.total_amount, o.created_at')
+            ->where('o.user_id = :userId')
+            ->setParameter('userId', $userId)
+            ->getQuery()
+            ->getArrayResult();
+    }
+
+    public function findOrderFullByUser(int $orderId, int $userId): array
+    {
+        return $this->createQueryBuilder('o')
+        ->select('PARTIAL o.{id, user_id, total_amount, status, shipping_address, created_at},
+         PARTIAL oi.{id, quantity, price, status, seller_id},
+         PARTIAL p.{id, name, type}')
+        ->leftJoin('o.orderItems', 'oi')
+        ->leftJoin('oi.product', 'p')
+        ->where('o.id = :orderId')
+        ->setParameter('orderId', $orderId)
+        ->andWhere('o.user_id = :userId')
+        ->setParameter('userId', $userId)
+        ->getQuery()
+        ->getArrayResult();
     }
 
 }

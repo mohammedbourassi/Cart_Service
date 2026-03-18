@@ -7,10 +7,12 @@ use Symfony\Component\Security\Core\User\UserInterface;
 class ApiUser implements UserInterface
 {
     private int|string $userId;
+    private array $roles;
 
-    public function __construct($userId)
+    public function __construct($userId, array $roles = [])
     {
         $this->userId = $userId;
+        $this->roles = $roles;
     }
 
     public function getUserIdentifier(): string
@@ -20,12 +22,10 @@ class ApiUser implements UserInterface
 
     public function getRoles(): array
     {
-        return [];
+        return $this->roles;
     }
 
-    public function eraseCredentials(): void
-    {
-    }
+    public function eraseCredentials(): void {}
 
     public function getUserId()
     {

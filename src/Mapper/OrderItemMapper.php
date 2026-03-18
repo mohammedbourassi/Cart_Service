@@ -19,5 +19,17 @@ class OrderItemMapper
         ];
     }
 
+    public static function mapSellerOrderItemToArray(OrderItems $item, string $productName, int $userId): array
+    {
+        return [
+            'product_name' => $productName,
+            'status' => $item->getStatus(),
+            'quantity' => $item->getQuantity(),
+            'price' => $item->getPrice(),
+            'status' => $item->getStatus(),
+            'client_id' => $userId,
+            'createdAt' => $item->getCreatedAt(),
+        ];
+    }
     
 }

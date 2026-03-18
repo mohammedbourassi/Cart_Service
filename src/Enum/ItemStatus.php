@@ -6,7 +6,7 @@ enum ItemStatus: string
 {
     case PENDING = 'pending';
     case PROCESSING = 'processing';
-    case SHIPED = 'shipped';
+    case SHIPPED = 'shipped';
     case DELIVERED = 'delivered';
     case CANCELLED = 'cancelled';
 }

@@ -49,6 +49,89 @@ class OrderItemsRepository extends ServiceEntityRepository
         }
     }
 
+    public function getOrderItemsOfUser(int $orderId, int $userId ) : array
+    {
+        return $this->createQueryBuilder('oi')
+        ->select('oi.id, oi.quantity, oi.price, oi.status, oi.seller_id, oi.created_at')
+        ->addSelect('p.name AS product_name')
+        ->addSelect('o.user_id')
+        ->leftJoin('oi.product', 'p')
+        ->leftJoin('oi.order_', 'o')
+        ->andWhere('o.id = :orderId')
+        ->andWhere('o.user_id = :userId')
+        ->setParameter('orderId', $orderId)
+        ->setParameter('userId', $userId)
+        ->getQuery()
+        ->getArrayResult();
+    }
 
+    public function getOneItemOfUser(int $orderItemId, int $userId, int $sellerId) : ?OrderItems
+    {
+        return $this->createQueryBuilder('oi')
+        ->select('oi')
+        ->leftJoin('oi.order_', 'o')
+        ->andWhere('oi.id = :orderItemId')
+        ->andWhere('oi.seller_id = :sellerId')
+        ->andWhere('o.user_id = :userId')
+        ->setParameter('orderItemId', $orderItemId)
+        ->setParameter('userId', $userId)
+        ->setParameter('sellerId', $sellerId)
+        ->getQuery()
+        ->getOneOrNullResult();
+    }
+
+    public function getSellerOrderItemsBySellerId(int $sellerId) : array
+    {
+        return $this->createQueryBuilder('oi')
+        ->select('oi.id, oi.quantity, oi.price, oi.status, oi.seller_id, oi.created_at')
+        ->addSelect('p.name AS product_name')
+        ->addSelect('o.user_id')
+        ->leftJoin('oi.product', 'p')
+        ->leftJoin('oi.order_', 'o')
+        ->andWhere('oi.seller_id = :sellerId')
+        ->setParameter('sellerId', $sellerId)
+        ->getQuery()
+        ->getArrayResult();
+    }
+
+    public function getOrdersOfMyItemsByUser(int $userId, int $sellerId) : array
+    {
+        return $this->createQueryBuilder('oi')
+        ->select('oi.id, oi.quantity, oi.price, oi.status, oi.seller_id, oi.created_at')
+        ->addSelect('p.name AS product_name')
+        ->addSelect('o.user_id')
+        ->leftJoin('oi.product', 'p')
+        ->leftJoin('oi.order_', 'o')
+        ->andWhere('o.user_id = :userId')
+        ->andWhere('oi.seller_id = :sellerId')
+        ->setParameter('userId', $userId)
+        ->setParameter('sellerId', $sellerId)
+        ->getQuery()
+        ->getArrayResult();
+    }
+
+    public function countTheNumberOfItemsInOrder(int $orderId) : int
+    {
+        return (int) $this->createQueryBuilder('oi')
+        ->select('COUNT(oi.id)')
+        ->andWhere('oi.order_ = :orderId')
+        ->setParameter('orderId', $orderId)
+        ->getQuery()
+        ->getSingleScalarResult();
+    }
+
+    public function countTheNumberOfItemsInOrderByStatus(int $orderId, string $status) : int
+    {
+        return (int) $this->createQueryBuilder('oi')
+        ->select('COUNT(oi.id)')
+        ->andWhere('oi.order_ = :orderId')
+        ->andWhere('oi.status = :status')
+        ->setParameter('orderId', $orderId)
+        ->setParameter('status', $status)
+        ->getQuery()
+        ->getSingleScalarResult();
+    }
+
+    
     
 }

@@ -17,11 +17,12 @@ class OrderMapper
         ];
     }
 
-    public static function mapOrdersToArray(array $order): array
+    public static function mapOrdersToArray(array $orders): array
     {
-        foreach ($order as $order) {
-            $orders[] = self::mapOrderToArray($order);
+        $array = [];
+        foreach ($orders as $order) {
+            $array[] = self::mapOrderToArray($order);
         }
-        return $orders;
+        return $array;
     }
 }

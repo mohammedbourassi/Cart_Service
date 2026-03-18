@@ -48,4 +48,19 @@ class ProductsRepository extends ServiceEntityRepository
             $this->getEntityManager()->flush();
         }
     }
+
+    public function getOneProduct(int $productId, int $sellerID)
+    {
+        return $this->createQueryBuilder('p')
+        ->select('p.id, p.name, p.description, p.price, p.stock, p.type')
+        ->andWhere('p.id = :productId')
+        ->andWhere('p.seller_id = :sellerId')
+        ->setParameter('productId', $productId)
+        ->setParameter('sellerId', $sellerID)
+        ->getQuery()
+        ->getOneOrNullResult();
+        
+    }
+
+    
 }
